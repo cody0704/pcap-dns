@@ -1,16 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
+	"import/file"
 	"log"
-	"os"
+	"regexp"
 	"strconv"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Test2Struct struct {
@@ -64,28 +68,87 @@ func test2Info(packet gopacket.Packet) (d Test2Struct, err error) {
 	return
 }
 
+var conn *sql.DB
+
 func main() {
-	path := flag.String("path", "./dns.pcap", "file path")
+	path := flag.String("path", "", "file path")
+	user := flag.String("user", "root", "mysql user")
+	pass := flag.String("pass", "@XinTrafficRoot", "mysql pass")
+	host := flag.String("host", "127.0.0.1", "mysq host")
+	port := flag.String("port", "3306", "mysql port")
+	database := flag.String("db", "pcap", "mysql database")
+
 	flag.Parse()
 
-	if _, err := os.Stat(*path); !os.IsNotExist(err) {
-		handler, err := pcap.OpenOffline(*path)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		defer handler.Close()
-
-		packetSource := gopacket.NewPacketSource(handler, handler.LinkType())
-
-		for packet := range packetSource.Packets() {
-			dns, err := test2Info(packet)
-			if err == nil {
-				fmt.Printf("%s:%s - %s:%s [FQDN]: %s\n", dns.SrcIP, dns.SrcPort, dns.DstIP, dns.DstPort, dns.FQDN)
-			}
-		}
-	} else {
-		fmt.Println("file not exist!")
+	if *path == "" {
+		fmt.Println(`please add --path="<path>"`)
+		return
 	}
 
+	root := file.GetAllFile(*path, "pcap")
+	if len(root) == 0 {
+		fmt.Println("Not found file or directory.")
+	} else {
+		for _, temp := range root {
+			conn = DBConnection(*user, *pass, *host, *port, *database)
+
+			handler, err := pcap.OpenOffline(*temp.Directory)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			defer handler.Close()
+
+			packetSource := gopacket.NewPacketSource(handler, handler.LinkType())
+
+			for packet := range packetSource.Packets() {
+				dns, err := test2Info(packet)
+				if err == nil {
+					// fmt.Printf("%s:%s - %s:%s [FQDN]: %s\n", dns.SrcIP, dns.SrcPort, dns.DstIP, dns.DstPort, dns.FQDN)
+					status := dnsin2db(dns)
+					if !status {
+						fmt.Println("DB Write Failed")
+					}
+				}
+			}
+		}
+	}
+}
+
+func DBConnection(user, pass, host, port, database string) *sql.DB {
+	var connectionString = fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?allowNativePasswords=true", user, pass, host, port, database)
+
+	db, err := sql.Open("mysql", connectionString)
+	if err != nil {
+		fmt.Println("[Mysql][Error]:", err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		fmt.Println("[Mysql][Error]: No Response")
+	}
+
+	return db
+}
+
+func dnsin2db(dns Test2Struct) bool {
+
+	res, err := conn.Exec("INSERT INTO `dns`(`Date`, `Time`, `usec`, `SourceIP`, `SourcePort`, `DestinationIP`, `DestinationPort`, `FQDN`) VALUES (?,?,?,?,?,?,?,?);", dns.Date, dns.Time, dns.usec, dns.SrcIP, getPort(dns.SrcPort), dns.DstIP, getPort(dns.DstPort), dns.FQDN)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	rowCount, _ := res.RowsAffected()
+	if rowCount == 1 {
+		return true
+	}
+
+	return false
+}
+
+func getPort(pacpPort string) (port string) {
+	re, _ := regexp.Compile(`^(\d+)`)
+	port = string(re.Find([]byte(pacpPort)))
+
+	return
 }
