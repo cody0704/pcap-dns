@@ -27,7 +27,7 @@ Search(){
                     if [[ $REPLY == *[0-9]* ]]; then
                         if [ `echo "$REPLY <= $totalPage" | bc` -eq 1 ]; then
                             no=`echo "($REPLY-1)*50" | bc`
-                            sql="SELECT Date,Time,usec,SourceIP,SourcePort,DestinationIP,DestinationPort,FQDN FROM $1 Limit $no, 50;"
+                            sql="SELECT Date,Time,usec,SourceIP,SourcePort,DestinationIP,DestinationPort,FQDN FROM $1 ORDER BY Date ASC,Time ASC, usec ASC Limit $no, 50 ;"
                             data="$($mysql -e "$sql")"
                             echo "$data"
                             echo "Page：$page/$totalPage"
@@ -61,8 +61,8 @@ select opt in "${options[@]}" "Quit"; do
         sql="dns WHERE SourceIP=\""$srcIP\"""
         Search "$sql" ;;
     2 ) 
-        read -p "Please input [StartDate] [StartTime] [EndDate] [EndTime]: " startDate startTime endDate endTime
-        sql="(SELECT *,concat(Date,\" \",Time) as timestamp FROM dns WHERE 1) as table2 WHERE timestamp BETWEEN \"$startDate $startTime\" AND \"$endDate $endTime\""
+        read -p "Please input [StartTime] [EndTime]: " startDate startTime endDate endTime
+        sql="(SELECT *,concat(Date,\" \",Time,usec) as timestamp FROM dns WHERE 1) as table2 WHERE timestamp BETWEEN \"$startDate $startTime\" AND \"$endDate $endTime\""
         Search "$sql" ;;
     3 ) 
         read -p "Please input [FQDN]: " FQDN
