@@ -10,8 +10,6 @@ echo "$title"
 
 Search(){
     sql="SELECT COUNT(*) FROM $1;"
-
-    echo $sql
     mysql="mysql -u "$user" -p"$pass" --protocol=tcp "$database""
 
     result="$($mysql -e "$sql")"
