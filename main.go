@@ -72,8 +72,8 @@ var conn *sql.DB
 
 func main() {
 	path := flag.String("path", "", "file path")
-	user := flag.String("user", "root", "mysql user")
-	pass := flag.String("pass", "@XinTrafficRoot", "mysql pass")
+	user := flag.String("user", "", "mysql user")
+	pass := flag.String("pass", "", "mysql pass")
 	host := flag.String("host", "127.0.0.1", "mysq host")
 	port := flag.String("port", "3306", "mysql port")
 	database := flag.String("db", "pcap", "mysql database")
