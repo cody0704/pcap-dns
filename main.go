@@ -89,9 +89,9 @@ func main() {
 	if len(root) == 0 {
 		fmt.Println("Not found file or directory.")
 	} else {
-		for _, temp := range root {
-			conn = DBConnection(*user, *pass, *host, *port, *database)
+		conn = DBConnection(*user, *pass, *host, *port, *database)
 
+		for _, temp := range root {
 			handler, err := pcap.OpenOffline(*temp.Directory)
 			if err != nil {
 				log.Fatal(err)
@@ -112,6 +112,8 @@ func main() {
 				}
 			}
 		}
+
+		conn.Close()
 	}
 }
 
